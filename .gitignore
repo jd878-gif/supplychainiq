@@ -1,0 +1,27 @@
+# Data stays out of git (download with scripts/download_data.sh)
+data/raw/*
+!data/raw/.gitkeep
+*.csv
+*.zip
+*.parquet
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Secrets and local config
+.env
+.databrickscfg
+kaggle.json
+
+# Databricks bundle state
+.databricks/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
