@@ -1,0 +1,61 @@
+# SupplyChainIQ generator configuration.
+# Every value here is a documented assumption (see docs/adr/0003-generator-assumptions.md).
+# Demand is real (M5); everything supply-side is generated from these settings.
+
+seed: 42
+
+data:
+  raw_dir: data/raw/m5
+  output_dir: data/generated
+  states: [CA, TX, WI]        # use [CA] for a faster first run (4 stores)
+
+window:
+  start: "2014-05-23"
+  end: "2016-05-22"
+  warmup_days: 28             # excluded from validation metrics (start-up bias)
+
+history_days: 365             # demand BEFORE the window, used for policy levels (no leakage)
+
+suppliers:
+  per_department: 4           # 7 departments -> 28 suppliers
+  unreliable_share: 0.20
+
+# Promised (contract) lead time in days, by category. Planner uses this value.
+lead_time_days:
+  FOODS: [2, 4]
+  HOUSEHOLD: [5, 10]
+  HOBBIES: [5, 10]
+
+# Extra days late on top of the promised lead time: {days_late: probability}.
+# Assumption, not calibrated: DataCo was profiled and found to use uniform synthetic delays.
+delay_distribution:
+  reliable:   {0: 0.92, 1: 0.06, 2: 0.02}
+  unreliable: {0: 0.45, 1: 0.15, 2: 0.15, 3: 0.10, 7: 0.10, 10: 0.05}   # tuning run 3
+
+# Probability an order arrives complete; otherwise a share in short_range arrives.
+fill_rate:
+  reliable:   {full_prob: 0.99, short_range: [0.90, 1.00]}
+  unreliable: {full_prob: 0.70, short_range: [0.50, 0.85]}   # tuning run 4
+
+# (R, s, S) periodic-review policy:
+#   s (reorder point) = mean * (R + L) + z * std * sqrt(R + L)   <- covers review gap + lead time
+#   S (order-up-to)   = s + mean * R
+# At the supplier's weekly review day, if position <= s, order S - position.
+# Levels are recalculated every `recalc_every_days` from the trailing `lookback_days`.
+policy:
+  service_level_z: 1.65       # ~95% cycle service level
+  review_period_days: 7
+  min_order_up_to: 2          # items with no history still get a small stock
+  recalc_every_days: 28       # planners refresh parameters monthly
+  lookback_days: 91           # trailing ~quarter of demand
+  signal: sales               # tuning run 5: planner only sees what sold (censored demand)
+
+transit_days: 1               # ship_date = arrival_date - transit_days
+cost_ratio: [0.55, 0.75]      # unit_cost = average sell price * U(cost_ratio)
+
+# Relative criteria (ADR 0003): absolute in-stock bands were replaced after tuning showed
+# in-stock rate is misleading for intermittent demand (61% of M5 item-store-days are zero).
+validation_targets:
+  reliable_in_stock: [0.95, 0.99]   # healthy baseline for good suppliers
+  min_lost_sales_ratio: 2.0         # unreliable lost-sales rate / reliable lost-sales rate
+  unreliable_worst_in_scorecard: true

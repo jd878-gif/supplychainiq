@@ -1,0 +1,29 @@
+seed: 42
+window: {start: "2014-05-23", end: "2016-05-22", warmup_days: 28}
+history_for_policy: {end: "2014-05-22", days: 365}   # leakage ટાળવા: ફક્ત ભૂતકાળ
+
+suppliers:
+  per_department: 4
+  unreliable_share: 0.20
+
+lead_time_days:          # base (promised) lead time
+  FOODS: [2, 4]
+  HOUSEHOLD: [5, 10]
+  HOBBIES: [5, 10]
+
+delay_distribution:
+  reliable:   {0: 0.92, 1: 0.06, 2: 0.02}
+  unreliable: {0: 0.45, 1: 0.15, 2: 0.15, 3: 0.10, 7: 0.10, 10: 0.05}
+
+fill_rate:
+  reliable:   {full_prob: 0.99, short_range: [0.9, 1.0]}
+  unreliable: {full_prob: 0.85, short_range: [0.6, 0.9]}
+
+policy:
+  service_level_z: 1.65        # 95%
+  review_period_days: 7        # weekly ordering per supplier
+  start_inventory: order_up_to # S
+
+validation_targets:
+  in_stock_reliable: [0.95, 0.98]
+  in_stock_unreliable: [0.85, 0.90]
