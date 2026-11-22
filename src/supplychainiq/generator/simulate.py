@@ -1,4 +1,4 @@
-﻿"""Daily inventory simulation around real M5 demand.
+"""Daily inventory simulation around real M5 demand.
 
 The loop runs over DAYS (about 731), and every step updates ALL item-store
 series at once with NumPy arrays. Looping over 22 million item-store-days in

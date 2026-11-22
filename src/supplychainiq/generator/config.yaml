@@ -59,3 +59,20 @@ validation_targets:
   reliable_in_stock: [0.95, 0.99]   # healthy baseline for good suppliers
   min_lost_sales_ratio: 2.0         # unreliable lost-sales rate / reliable lost-sales rate
   unreliable_worst_in_scorecard: true
+
+# Faults the pipeline must catch (fault design: see the fault table in docs).
+# Every injected fault is logged in ground_truth/faults.csv with an ID.
+faults:
+  duplicate_pos_rate: 0.003         # 0.3% of POS events are sent twice
+  duplicate_next_file_share: 0.5    # half re-sent in the NEXT day's file (cross-batch dedupe)
+  late_files: {count: 12, delay_days: [2, 3]}   # POS store-day files that arrive late
+  bad_inventory: {count: 55}        # half negative, half impossibly large on-hand values
+  schema_drift: {start_date: "2015-08-11", new_column: carrier_code}   # shipments CSV
+  product_updates:                  # Postgres products table changes (SCD2)
+    cost_changes: 175
+    discontinued: 15
+    supplier_switches: 25           # to a supplier in the same department AND tier
+
+write:
+  compress: gzip            # gzip | none (Auto Loader reads .gz directly)
+  carriers: [UPS, FEDEX, DHL, XPO, ESTES]

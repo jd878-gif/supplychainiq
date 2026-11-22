@@ -6,16 +6,29 @@ Examples (from the repo root, venv active):
 """
 
 import argparse
+import shutil
 import time
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from supplychainiq.generator.config import DEFAULT_CONFIG, load_config
+from supplychainiq.generator.faults import (
+    apply_supplier_switches,
+    ground_truth,
+    plan_faults,
+    pos_for_discontinued,
+)
 from supplychainiq.generator.load_m5 import load_m5
 from supplychainiq.generator.simulate import simulate
 from supplychainiq.generator.suppliers import build_suppliers
 from supplychainiq.generator.validate import check_criteria, supplier_scorecard, tier_summary
+from supplychainiq.generator.writers import (
+    write_ground_truth,
+    write_landing_files,
+    write_postgres_seed,
+)
 
 
 def find_root(start: Path) -> Path:
@@ -31,6 +44,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--states", nargs="+", help="Override states, e.g. --states CA")
     parser.add_argument("--days", type=int, help="Simulate only the first N days")
     parser.add_argument("--no-save", action="store_true", help="Print results only")
+    parser.add_argument(
+        "--write-files", action="store_true",
+        help="Also write landing files, Postgres seed and ground truth (with faults)",
+    )
     args = parser.parse_args(argv)
 
     cfg = load_config(args.config)
@@ -43,6 +60,11 @@ def main(argv: list[str] | None = None) -> None:
     data = load_m5(cfg, root)
     if args.days:
         data = data.head_days(args.days)
+        drift = cfg["faults"]["schema_drift"]
+        if pd.Timestamp(drift["start_date"]) > data.dates[-1]:
+            # short test run: move the drift date to the middle of the shortened window
+            drift["start_date"] = str(data.dates[len(data.dates) // 2].date())
+            print(f"--days run: schema drift moved to {drift['start_date']} for this run only")
     print(f"Loaded {data.demand.shape[1]:,} series x {data.demand.shape[0]} days "
           f"({data.dates[0].date()} to {data.dates[-1].date()}) in {time.perf_counter()-t0:.1f}s")
 
@@ -79,7 +101,23 @@ def main(argv: list[str] | None = None) -> None:
     summary.to_csv(out / "validation_by_tier.csv", index=False)
     criteria.to_csv(out / "validation_criteria.csv", index=False)
     card.to_csv(out / "supplier_scorecard.csv", index=False)
-    print(f"\nSaved to {out}")
+    print(f"\nSaved tables and arrays to {out}")
+
+    if args.write_files:
+        t2 = time.perf_counter()
+        for sub in ("landing", "postgres_seed", "ground_truth"):
+            shutil.rmtree(out / sub, ignore_errors=True)  # no stale files from earlier runs
+        plan = plan_faults(data, result, products, suppliers, cfg, rng)
+        purchase_orders = apply_supplier_switches(result.purchase_orders, plan.product_changes)
+        disc_pos = pos_for_discontinued(purchase_orders, plan.product_changes)
+        dups = write_landing_files(out, data, result, plan, cfg, rng)
+        write_postgres_seed(
+            out, suppliers, products, purchase_orders, result.shipments, plan, data.dates[0]
+        )
+        faults = ground_truth(plan, dups, disc_pos)
+        write_ground_truth(out, faults, data, result)
+        print(f"\nWrote landing files + seed + ground truth in {time.perf_counter()-t2:.0f}s")
+        print("Injected faults:\n", faults["fault_type"].value_counts().to_string())
 
 
 if __name__ == "__main__":

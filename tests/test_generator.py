@@ -1,49 +1,18 @@
 import numpy as np
 import pandas as pd
 import pytest
+from sim_helpers import make_data, run
 
 from supplychainiq.generator.config import DEFAULT_CONFIG, load_config, validate_config
-from supplychainiq.generator.load_m5 import M5Data, load_m5
+from supplychainiq.generator.load_m5 import load_m5
 from supplychainiq.generator.policy import policy_levels
-from supplychainiq.generator.simulate import simulate, trailing_stats
-from supplychainiq.generator.suppliers import build_suppliers
+from supplychainiq.generator.simulate import trailing_stats
 from supplychainiq.generator.validate import check_criteria, supplier_scorecard, tier_summary
 
 
 @pytest.fixture
 def cfg():
     return load_config(DEFAULT_CONFIG)
-
-
-def make_data(n_items=40, stores=("CA_1", "CA_2"), days=120, seed=0) -> M5Data:
-    rng = np.random.default_rng(seed)
-    depts = ["FOODS_1", "HOUSEHOLD_1", "HOBBIES_1"]
-    rows = []
-    for i in range(n_items):
-        dept = depts[i % len(depts)]
-        for st in stores:
-            item = f"{dept}_{i:03d}"
-            rows.append(
-                {"id": f"{item}_{st}", "item_id": item, "dept_id": dept,
-                 "cat_id": dept.split("_")[0], "store_id": st, "state_id": "CA"}
-            )
-    meta = pd.DataFrame(rows)
-    means = rng.uniform(0.2, 6, len(meta))
-    demand = rng.poisson(means, size=(days, len(meta))).astype(np.int32)
-    hist = rng.poisson(means, size=(120, len(meta))).astype(np.int16)
-    return M5Data(
-        demand=demand,
-        hist_demand=hist,
-        meta=meta,
-        dates=pd.date_range("2015-01-01", periods=days, freq="D"),
-        avg_price=pd.Series({r: 5.0 for r in meta["item_id"].unique()}),
-    )
-
-
-def run(cfg, data, seed=1):
-    rng = np.random.default_rng(seed)
-    suppliers, products = build_suppliers(data.meta, data.avg_price, cfg, rng)
-    return suppliers, products, simulate(data, suppliers, products, cfg, rng)
 
 
 def test_policy_levels_order_up_to_above_reorder_point():
