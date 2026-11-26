@@ -1,0 +1,21 @@
+# Lakeflow Declarative Pipeline (serverless, triggered). Writes to <catalog>.lakeflow only.
+resources:
+  schemas:
+    lakeflow:
+      catalog_name: ${var.catalog}
+      name: lakeflow
+      comment: Tables managed by the declarative pipeline
+
+  pipelines:
+    supplychainiq_declarative:
+      name: supplychainiq_declarative
+      catalog: ${var.catalog}
+      schema: ${resources.schemas.lakeflow.name}
+      serverless: true
+      continuous: false            # triggered: process what is new, then stop (no idle cost)
+      channel: CURRENT
+      configuration:
+        catalog: ${var.catalog}
+      libraries:
+        - file:
+            path: ../pipelines/supplychainiq_declarative.py
