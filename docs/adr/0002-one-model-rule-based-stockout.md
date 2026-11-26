@@ -1,6 +1,6 @@
 # ADR 0002: One forecast model; stockout risk as a rule on the forecast
 
-- Status: Accepted (forecast not built yet)
+- Status: Accepted; forecast implemented (`notebooks/databricks/50_forecast_train`), risk rule not built yet
 - Date: 2026-11-26
 
 ## Context
@@ -31,3 +31,25 @@ undefined).
 - The rule is unit-testable and can be checked against the generator's ground truth.
 - It cannot capture effects outside the inputs (supplier lateness beyond the promised lead time) unless lead time
   is replaced by the supplier's observed lead time from the scorecard, which is the planned next step.
+
+## Results (first implementation, 2026-11-26)
+Direct multi-horizon LightGBM (Tweedie loss, features from the forecast origin, baseline offset
+`init_score = log(28-day mean)`), trained on censoring-corrected demand and graded against the generator's true demand
+on the last 28 days:
+
+| Model | Item-day WAPE | Bias |
+|---|---|---|
+| 28-day moving average of sales | **0.834** | -2.8% |
+| LightGBM, corrected target | 0.845 | -3.5% |
+
+The model did not beat the moving average at item-day level, so the promotion gate kept it out of `@champion`.
+What the iterations showed:
+- an `item_code` categorical feature (3,049 levels) memorised stale item levels: removing it cut WAPE from 0.900 to 0.847;
+- the offset closed most of the remaining gap but not all of it;
+- at item-day level, intermittent demand (61% zero days) makes a flat moving average a strong baseline, as in M5.
+
+Decision: keep champion/challenger. Training runs weekly, every result is logged (MLflow + `gold.forecast_metrics`),
+and a model is promoted only when it wins. A failed challenger is a result, not a pipeline failure.
+
+Next: evaluate at the decision level (item x lead time), add price-change and promotion features, and try a
+median/quantile objective, which matches an absolute-error metric on intermittent demand.

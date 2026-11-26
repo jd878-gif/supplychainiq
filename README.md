@@ -15,6 +15,7 @@ with **injected faults and a ground-truth table**, so every data-quality rule an
 | Postgres CDC (query-based) + SCD2 | Silver POs = source (1,059,859); received POs = shipment files exactly |
 | Supplier scorecard | Unreliable suppliers found blind: OTIF 0.31 vs 0.91; 3x lost-sales rate |
 | Lost-sales estimate (censored demand) | EM estimator captures ~70% of true loss (WAPE 0.30); reported as a lower bound |
+| Demand forecast (LightGBM + MLflow) | 28-day direct forecast on censoring-corrected demand, graded vs true demand: item-day WAPE 0.845 vs 0.834 for a 28-day moving average, so the champion/challenger gate did **not** promote it (see ADR 0002) |
 
 ## Dashboard (Databricks AI/BI)
 ![Executive](docs/images/dashboard_executive.png)
@@ -45,7 +46,8 @@ flowchart LR
   GO --> VAL["Validation vs ground truth"]
 ```
 
-**Orchestration:** one Lakeflow Job (`supplychainiq_daily`, 10 tasks, serverless) with retries, timeouts, failure email
+**Orchestration:** a daily Lakeflow Job (`supplychainiq_daily`, 10 tasks, serverless) and a weekly training job
+(`supplychainiq_forecast_weekly`). The daily job has retries, timeouts, failure email
 and data-quality assertions that fail the run (`ops.dq_results`).
 **Deployment:** the job is defined as code in a Databricks Asset Bundle (`databricks.yml`, `resources/`) with `dev` and
 `prod` targets; GitHub Actions lints, tests and validates every push and deploys to prod from `main`.
@@ -57,7 +59,7 @@ and data-quality assertions that fail the run (`ops.dq_results`).
 - [x] AI/BI dashboard
 - [ ] Declarative pipeline (incremental)
 - [x] Asset Bundles + CI/CD (dev/prod)
-- [ ] Demand forecast + MLflow
+- [x] Demand forecast + MLflow (champion/challenger gate in Unity Catalog)
 
 ## Design decisions
 | ADR | Decision |
@@ -70,7 +72,7 @@ and data-quality assertions that fail the run (`ops.dq_results`).
 
 ## Repo layout
 - `src/supplychainiq/generator/`: simulation + fault injection (tested)
-- `notebooks/databricks/`: Bronze, Silver, Gold, CDC and validation notebooks (`_common` holds shared config + DQ helpers)
+- `notebooks/databricks/`: Bronze, Silver, Gold, CDC, forecast (`50_forecast_train`) and validation notebooks (`_common` holds shared config + DQ helpers)
 - `databricks.yml`, `resources/`: Asset Bundle (job definition, dev/prod targets)
 - `.github/workflows/ci.yml`: lint, tests, bundle validate, deploy to prod on `main`
 - `scripts/`: data download, landing upload, Postgres replay
