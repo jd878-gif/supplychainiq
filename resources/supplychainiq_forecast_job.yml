@@ -1,0 +1,24 @@
+# Weekly retraining: demand forecast (notebook 50). Kept out of the daily job:
+# the model does not need to change every day, and training is the most expensive step.
+resources:
+  jobs:
+    supplychainiq_forecast_weekly:
+      name: supplychainiq_forecast_weekly
+      max_concurrent_runs: 1
+      performance_target: STANDARD
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: train_days
+          default: "182"
+      email_notifications:
+        on_failure:
+          - ${var.notify_email}
+      schedule:
+        quartz_cron_expression: "0 0 8 ? * MON"   # Mondays 08:00, after the daily run
+        timezone_id: America/New_York
+        pause_status: PAUSED
+      tasks:
+        - task_key: forecast_train
+          notebook_task: {notebook_path: ../notebooks/databricks/50_forecast_train.ipynb}
+          timeout_seconds: 7200
