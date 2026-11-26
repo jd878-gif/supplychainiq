@@ -16,6 +16,11 @@ with **injected faults and a ground-truth table**, so every data-quality rule an
 | Supplier scorecard | Unreliable suppliers found blind: OTIF 0.31 vs 0.91; 3x lost-sales rate |
 | Lost-sales estimate (censored demand) | EM estimator captures ~70% of true loss (WAPE 0.30); reported as a lower bound |
 
+## Dashboard (Databricks AI/BI)
+![Executive](docs/images/dashboard_executive.png)
+![Suppliers](docs/images/dashboard_suppliers.png)
+![Data quality](docs/images/dashboard_dq.png)
+
 ## Architecture (current)
 ```
 Landing files (ADLS) --Auto Loader--> Bronze --DQ/dedup/quarantine--> Silver --> Gold (facts, KPIs, supplier scorecard)
