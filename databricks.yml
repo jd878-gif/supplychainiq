@@ -1,0 +1,42 @@
+# Databricks Asset Bundle: the pipeline as code.
+# Deploy:  databricks bundle deploy -t dev   |   databricks bundle deploy -t prod
+bundle:
+  name: supplychainiq
+
+include:
+  - resources/*.yml
+
+# never upload local data or the virtualenv to the workspace
+sync:
+  exclude:
+    - data/**
+    - .venv/**
+
+variables:
+  catalog:
+    description: Unity Catalog catalog the pipeline reads and writes
+    default: supplychainiq_dev
+  notify_email:
+    description: Who gets failure emails
+    default: jd878@njit.edu
+
+workspace:
+  host: https://adb-7405612254468206.6.azuredatabricks.net
+
+targets:
+  dev:
+    # development mode: resources prefixed "[dev <user>]", schedules paused, deployed per user
+    mode: development
+    default: true
+    variables:
+      catalog: supplychainiq_dev
+
+  prod:
+    mode: production
+    variables:
+      catalog: supplychainiq
+    workspace:
+      # one shared copy for prod (not per user)
+      root_path: /Workspace/Users/jd878@njit.edu/.bundle/${bundle.name}/${bundle.target}
+    run_as:
+      user_name: jd878@njit.edu

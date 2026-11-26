@@ -25,5 +25,22 @@ jobs:
       - name: Test
         run: pytest -q
 
-      # Added in Phase 0 once the Azure workspace exists:
-      # - databricks bundle validate
+  # Validate the bundle on every push/PR; deploy to prod only from main, after tests pass.
+  bundle:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: databricks/setup-cli@main
+
+      - name: Validate bundle (prod)
+        run: databricks bundle validate -t prod
+
+      - name: Deploy bundle (prod)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: databricks bundle deploy -t prod

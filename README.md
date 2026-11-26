@@ -31,10 +31,10 @@ Governed by Unity Catalog; serverless compute.
 ## Roadmap
 - [x] Generator, fault injection, ground truth (local, tested, CI)
 - [x] Azure + Unity Catalog setup; Bronze; Silver + DQ; Gold; Postgres CDC + SCD2
-- [ ] Lakeflow Job orchestration + alerts
-- [ ] AI/BI dashboard
+- [x] Lakeflow Job orchestration + alerts
+- [x] AI/BI dashboard
 - [ ] Declarative pipeline (incremental)
-- [ ] Asset Bundles + CI/CD (dev/prod)
+- [x] Asset Bundles + CI/CD (dev/prod)
 - [ ] Demand forecast + MLflow
 
 ## Repo layout
