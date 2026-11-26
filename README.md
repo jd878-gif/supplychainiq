@@ -16,6 +16,7 @@ with **injected faults and a ground-truth table**, so every data-quality rule an
 | Supplier scorecard | Unreliable suppliers found blind: OTIF 0.31 vs 0.91; 3x lost-sales rate |
 | Lost-sales estimate (censored demand) | EM estimator captures ~70% of true loss (WAPE 0.30); reported as a lower bound |
 | Demand forecast (LightGBM + MLflow) | 28-day direct forecast on censoring-corrected demand, graded vs true demand: item-day WAPE 0.845 vs 0.834 for a 28-day moving average, so the champion/challenger gate did **not** promote it (see ADR 0002) |
+| Lakeflow Declarative Pipeline | Shipments (1.4M rows), product SCD2 and supplier KPIs re-implemented declaratively: DQ rules as expectations + quarantine, SCD2 via AUTO CDC, materialized views; first run green, output in `<catalog>.lakeflow` |
 
 ## Dashboard (Databricks AI/BI)
 ![Executive](docs/images/dashboard_executive.png)
@@ -49,6 +50,8 @@ flowchart LR
 **Orchestration:** a daily Lakeflow Job (`supplychainiq_daily`, 10 tasks, serverless) and a weekly training job
 (`supplychainiq_forecast_weekly`). The daily job has retries, timeouts, failure email
 and data-quality assertions that fail the run (`ops.dq_results`).
+A Lakeflow Declarative Pipeline (`supplychainiq_declarative`) shows the same shipment/SCD2/KPI logic declared instead
+of hand-coded: expectations, quarantine, AUTO CDC and materialized views, written to `<catalog>.lakeflow`.
 **Deployment:** the job is defined as code in a Databricks Asset Bundle (`databricks.yml`, `resources/`) with `dev` and
 `prod` targets; GitHub Actions lints, tests and validates every push and deploys to prod from `main`.
 
@@ -57,7 +60,7 @@ and data-quality assertions that fail the run (`ops.dq_results`).
 - [x] Azure + Unity Catalog setup; Bronze; Silver + DQ; Gold; Postgres CDC + SCD2
 - [x] Lakeflow Job orchestration + alerts
 - [x] AI/BI dashboard
-- [ ] Declarative pipeline (incremental)
+- [x] Lakeflow Declarative Pipeline (expectations, quarantine, AUTO CDC SCD2, materialized views)
 - [x] Asset Bundles + CI/CD (dev/prod)
 - [x] Demand forecast + MLflow (champion/challenger gate in Unity Catalog)
 
@@ -73,7 +76,8 @@ and data-quality assertions that fail the run (`ops.dq_results`).
 ## Repo layout
 - `src/supplychainiq/generator/`: simulation + fault injection (tested)
 - `notebooks/databricks/`: Bronze, Silver, Gold, CDC, forecast (`50_forecast_train`) and validation notebooks (`_common` holds shared config + DQ helpers)
-- `databricks.yml`, `resources/`: Asset Bundle (job definition, dev/prod targets)
+- `pipelines/`: Lakeflow Declarative Pipeline (`supplychainiq_declarative.py`)
+- `databricks.yml`, `resources/`: Asset Bundle (daily job, weekly forecast job, declarative pipeline, dev/prod targets)
 - `.github/workflows/ci.yml`: lint, tests, bundle validate, deploy to prod on `main`
 - `scripts/`: data download, landing upload, Postgres replay
 - `docs/`: ADRs, tuning log, data profile, dashboard screenshots
